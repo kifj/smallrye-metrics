@@ -26,8 +26,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import org.eclipse.microprofile.config.Config;
-import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.metrics.ConcurrentGauge;
 import org.eclipse.microprofile.metrics.Counter;
 import org.eclipse.microprofile.metrics.Gauge;
@@ -79,17 +77,9 @@ public class OpenMetricsExporter implements Exporter {
     private ThreadLocal<Set<String>> alreadyExportedNames = new ThreadLocal<>();
 
     public OpenMetricsExporter() {
-        try {
-            Config config = ConfigProvider.getConfig();
-            Optional<Boolean> tmp = config.getOptionalValue(MICROPROFILE_METRICS_OMIT_HELP_LINE, Boolean.class);
-            usePrefixForScope = config.getOptionalValue(SMALLRYE_METRICS_USE_PREFIX_FOR_SCOPE, Boolean.class).orElse(true);
-            writeHelpLine = !tmp.isPresent() || !tmp.get();
-        } catch (IllegalStateException | ExceptionInInitializerError | NoClassDefFoundError t) {
-            // MP Config implementation is probably not available. Resort to default configuration.
-            usePrefixForScope = true;
-            writeHelpLine = true;
-        }
-
+        // MP Config implementation is not available. Resort to default configuration.
+        usePrefixForScope = true;
+        writeHelpLine = true;
     }
 
     @Override
