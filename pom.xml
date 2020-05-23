@@ -53,9 +53,9 @@
   </issueManagement>
 
   <scm>
-    <connection>scm:git:git@github.com:smallrye/smallrye-metrics.git</connection>
-    <developerConnection>scm:git:git@github.com:smallrye/smallrye-metrics.git</developerConnection>
-    <url>https://github.com/smallrye/smallrye-metrics/</url>
+    <connection>scm:git:git@github.com:kifj/smallrye-metrics.git</connection>
+    <developerConnection>scm:git:git@github.com:kifj/smallrye-metrics.git</developerConnection>
+    <url>https://github.com/kifj/smallrye-metrics/</url>
     <tag>HEAD</tag>
   </scm>
 
@@ -136,19 +136,20 @@
   </profiles>
 
   <distributionManagement>
+    <site>
+      <id>x1-site</id>
+      <name>X1 Maven Site</name>
+      <url>dav:https://www.x1/nexus/content/repositories/x1-site/${project.groupId}/${project.artifactId}/${project.version}</url>
+    </site>
     <repository>
-      <id>artifactory-releases</id>
-      <name>access-release</name>
-      <url>https://artifactory.1and1.org/artifactory/access-release</url>
-      <uniqueVersion>false</uniqueVersion>
-      <layout>default</layout>
+      <id>x1-repo</id>
+      <name>X1 Maven Repository</name>
+      <url>https://www.x1/nexus/content/repositories/x1-repo</url>
     </repository>
     <snapshotRepository>
-      <id>artifactory-snapshots</id>
-      <name>access-snapshot</name>
-      <url>https://artifactory.1and1.org/artifactory/access-snapshot</url>
-      <uniqueVersion>true</uniqueVersion>
-      <layout>default</layout>
+      <id>x1-snapshot-repo</id>
+      <name>X1 Maven Snapshot Repository</name>
+      <url>https://www.x1/nexus/content/repositories/x1-snapshot-repo</url>
     </snapshotRepository>
   </distributionManagement>
 
