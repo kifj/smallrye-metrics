@@ -43,7 +43,6 @@ import org.eclipse.microprofile.metrics.MetricType;
 import org.eclipse.microprofile.metrics.SimpleTimer;
 import org.eclipse.microprofile.metrics.Tag;
 import org.eclipse.microprofile.metrics.Timer;
-import org.jboss.logging.Logger;
 
 import io.smallrye.metrics.app.ConcurrentGaugeImpl;
 import io.smallrye.metrics.app.CounterImpl;
@@ -58,8 +57,6 @@ import io.smallrye.metrics.app.TimerImpl;
  */
 @Vetoed
 public class MetricsRegistryImpl implements MetricRegistry {
-
-    private static Logger log = Logger.getLogger(MetricsRegistryImpl.class);
 
     private Map<String, Metadata> metadataMap = new ConcurrentHashMap<>();
 
@@ -92,12 +89,12 @@ public class MetricsRegistryImpl implements MetricRegistry {
 
         final MetricID metricID = new MetricID(name);
         if (metricMap.keySet().contains(metricID)) {
-            throw new IllegalArgumentException("A metric with name " + name + " already exists");
+            throw SmallRyeMetricsMessages.msg.metricWithNameAlreadyExists(name);
         }
 
         MetricType type = inferMetricType(metric.getClass());
         if (type == null || type.equals(MetricType.INVALID)) {
-            throw new IllegalStateException("Unable to infer metric type of " + metric);
+            throw SmallRyeMetricsMessages.msg.unableToInferMetricType();
         }
 
         Metadata m = Metadata.builder().withName(name).withType(type).build();
@@ -115,13 +112,13 @@ public class MetricsRegistryImpl implements MetricRegistry {
     public synchronized <T extends Metric> T register(Metadata metadata, T metric, Tag... tags) {
         String name = metadata.getName();
         if (name == null) {
-            throw new IllegalArgumentException("Metric name must not be null");
+            throw SmallRyeMetricsMessages.msg.metricNameMustNotBeNullOrEmpty();
         }
         MetricID metricID = new MetricID(name, tags);
         Metadata existingMetadata = metadataMap.get(name);
 
         if (metricMap.containsKey(metricID) && metadata.getTypeRaw().equals(MetricType.GAUGE)) {
-            throw new IllegalArgumentException("A gauge with metricID " + metricID + " already exists");
+            throw SmallRyeMetricsMessages.msg.gaugeWithIdAlreadyExists(metricID);
         }
 
         /*
@@ -136,8 +133,7 @@ public class MetricsRegistryImpl implements MetricRegistry {
         if (existingMetadata != null) {
             if (metadata instanceof UnspecifiedMetadata) {
                 if (!metadata.getType().equals(existingMetadata.getType())) {
-                    throw new IllegalArgumentException("There is an existing metric with name " + name
-                            + " but of different type (" + existingMetadata.getType() + ")");
+                    throw SmallRyeMetricsMessages.msg.metricExistsUnderDifferentType(name, existingMetadata.getType());
                 }
                 metricMap.put(metricID, metric);
             } else {
@@ -171,26 +167,26 @@ public class MetricsRegistryImpl implements MetricRegistry {
          * throw a more user-friendly error if the metadata objects are not equal
          */
         if (!existingMetadata.getTypeRaw().equals(newMetadata.getTypeRaw())) {
-            throw new IllegalStateException("Passed metric type does not match existing type");
+            throw SmallRyeMetricsMessages.msg.metricExistsUnderDifferentType(newMetadata.getName(), existingMetadata.getType());
         }
 
         // unspecified means that someone is programmatically obtaining a metric instance without specifying the metadata, so we check only the name and type
         if (!(newMetadata instanceof UnspecifiedMetadata)) {
 
-            String existingUnit = existingMetadata.getUnit().orElse("none");
-            String newUnit = newMetadata.getUnit().orElse("none");
+            String existingUnit = existingMetadata.getUnit();
+            String newUnit = newMetadata.getUnit();
             if (!existingUnit.equals(newUnit)) {
-                throw new IllegalStateException("Unit is different from the unit in previous usage (" + existingUnit + ")");
+                throw SmallRyeMetricsMessages.msg.unitDiffersFromPreviousUsage(existingUnit);
             }
 
-            String existingDescription = existingMetadata.getDescription().orElse("none");
-            String newDescription = newMetadata.getDescription().orElse("none");
+            String existingDescription = existingMetadata.getDescription();
+            String newDescription = newMetadata.getDescription();
             if (!existingDescription.equals(newDescription)) {
-                throw new IllegalStateException("Description differs from previous usage");
+                throw SmallRyeMetricsMessages.msg.descriptionDiffersFromPreviousUsage();
             }
 
             if (!existingMetadata.getDisplayName().equals(newMetadata.getDisplayName())) {
-                throw new IllegalStateException("Display name differs from previous usage");
+                throw SmallRyeMetricsMessages.msg.displayNameDiffersFromPreviousUsage();
             }
         }
     }
@@ -383,7 +379,7 @@ public class MetricsRegistryImpl implements MetricRegistry {
         String name = metadata.getName();
         MetricType type = metadata.getTypeRaw();
         if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("Name must not be null or empty");
+            throw SmallRyeMetricsMessages.msg.metricNameMustNotBeNullOrEmpty();
         }
 
         Metadata previousMetadata = metadataMap.get(name);
@@ -419,16 +415,15 @@ public class MetricsRegistryImpl implements MetricRegistry {
                     throw new IllegalStateException("Must not happen");
             }
             if (metadata instanceof OriginAndMetadata) {
-                log.debugf("Register metric [metricId: %s, type: %s, origin: %s]", metricID, type,
+                SmallRyeMetricsLogging.log.registerMetric(metricID, type,
                         ((OriginAndMetadata) metadata).getOrigin());
             } else {
-                log.debugf("Register metric [metricId: %s, type: %s]", metricID, type);
+                SmallRyeMetricsLogging.log.registerMetric(metricID, type);
             }
 
             register(metadata, m, metricID.getTagsAsList().toArray(new Tag[] {}));
         } else if (!previousMetadata.getTypeRaw().equals(metadata.getTypeRaw())) {
-            throw new IllegalArgumentException("Previously registered metric " + name + " is of type "
-                    + previousMetadata.getType() + ", expected " + metadata.getType());
+            throw SmallRyeMetricsMessages.msg.metricExistsUnderDifferentType(name, previousMetadata.getType());
         } else if (metadata instanceof OriginAndMetadata &&
                 originMap.get(metricID) != null &&
                 areCompatibleOrigins(originMap.get(metricID), ((OriginAndMetadata) metadata).getOrigin())) {
@@ -454,7 +449,7 @@ public class MetricsRegistryImpl implements MetricRegistry {
 
     @Override
     public boolean remove(String metricName) {
-        log.debugf("Removing metrics with [name: %s]", metricName);
+        SmallRyeMetricsLogging.log.removeMetricsByName(metricName);
         // iterate over all metricID's in the map and remove the ones with this name
         for (MetricID metricID : metricMap.keySet()) {
             if (metricID.getName().equals(metricName)) {
@@ -468,12 +463,13 @@ public class MetricsRegistryImpl implements MetricRegistry {
     @Override
     public synchronized boolean remove(MetricID metricID) {
         if (metricMap.containsKey(metricID)) {
-            log.debugf("Remove metric with [id: %s]", metricID);
+            SmallRyeMetricsLogging.log.removeMetricsById(metricID);
             metricMap.remove(metricID);
             // remove the metadata as well if this is the last metric of this name to be removed
-            if (metricMap.keySet().stream().noneMatch(id -> id.getName().equals(metricID.getName()))) {
-                log.debugf("Remove metadata for [name: %s]", metricID.getName());
-                metadataMap.remove(metricID.getName());
+            String name = metricID.getName();
+            if (metricMap.keySet().stream().noneMatch(id -> id.getName().equals(name))) {
+                SmallRyeMetricsLogging.log.removeMetadata(name);
+                metadataMap.remove(name);
             }
             return true;
         }
@@ -587,6 +583,50 @@ public class MetricsRegistryImpl implements MetricRegistry {
     }
 
     @Override
+    public <T extends Metric> T getMetric(MetricID metricID, Class<T> asType) {
+        try {
+            return asType.cast(getMetric(metricID));
+        } catch (ClassCastException e) {
+            throw new IllegalArgumentException(metricID + " was not of expected type " + asType, e);
+        }
+    }
+
+    @Override
+    public Counter getCounter(MetricID metricID) {
+        return getMetric(metricID, Counter.class);
+    }
+
+    @Override
+    public ConcurrentGauge getConcurrentGauge(MetricID metricID) {
+        return getMetric(metricID, ConcurrentGauge.class);
+    }
+
+    @Override
+    public Gauge<?> getGauge(MetricID metricID) {
+        return getMetric(metricID, Gauge.class);
+    }
+
+    @Override
+    public Histogram getHistogram(MetricID metricID) {
+        return getMetric(metricID, Histogram.class);
+    }
+
+    @Override
+    public Meter getMeter(MetricID metricID) {
+        return getMetric(metricID, Meter.class);
+    }
+
+    @Override
+    public Timer getTimer(MetricID metricID) {
+        return getMetric(metricID, Timer.class);
+    }
+
+    @Override
+    public SimpleTimer getSimpleTimer(MetricID metricID) {
+        return getMetric(metricID, SimpleTimer.class);
+    }
+
+    @Override
     public SortedMap<MetricID, Metric> getMetrics(MetricFilter filter) {
         SortedMap<MetricID, Metric> out = new TreeMap<>();
         for (Map.Entry<MetricID, Metric> entry : metricMap.entrySet()) {
@@ -595,6 +635,13 @@ public class MetricsRegistryImpl implements MetricRegistry {
             }
         }
         return out;
+    }
+
+    @Override
+    public <T extends Metric> SortedMap<MetricID, T> getMetrics(Class<T> ofType, MetricFilter filter) {
+        return (SortedMap<MetricID, T>) getMetrics(
+                (metricID, metric) -> filter.matches(metricID, metric)
+                        && ofType.isAssignableFrom(metric.getClass()));
     }
 
     private Metadata sanitizeMetadata(Metadata metadata, Class<?> metricClass) {
@@ -614,8 +661,7 @@ public class MetricsRegistryImpl implements MetricRegistry {
             return Metadata.builder(metadata).withType(metricType).build();
         } else {
             if (metadata.getTypeRaw() != metricType) {
-                throw new IllegalArgumentException("Attempting to register a " + metricType + ", but the passed metadata" +
-                        " contains type=" + metadata.getType());
+                throw SmallRyeMetricsMessages.msg.typeMismatch(metricType, metadata.getTypeRaw());
             } else {
                 return metadata;
             }
@@ -698,8 +744,7 @@ public class MetricsRegistryImpl implements MetricRegistry {
                     candidateType = newCandidateType;
                 } else {
                     if (newCandidateType != null && !candidateType.equals(newCandidateType)) {
-                        throw new IllegalArgumentException("Ambiguous metric type, " +
-                                newCandidateType + " and " + candidateType + " are possible");
+                        throw SmallRyeMetricsMessages.msg.ambiguousMetricType(newCandidateType, candidateType);
                     }
                 }
             }

@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
@@ -45,7 +44,6 @@ import org.eclipse.microprofile.metrics.SimpleTimer;
 import org.eclipse.microprofile.metrics.Snapshot;
 import org.eclipse.microprofile.metrics.Tag;
 import org.eclipse.microprofile.metrics.Timer;
-import org.jboss.logging.Logger;
 
 import io.smallrye.metrics.MetricRegistries;
 
@@ -53,8 +51,6 @@ import io.smallrye.metrics.MetricRegistries;
  * @author hrupp
  */
 public class JsonExporter implements Exporter {
-
-    private static final Logger log = Logger.getLogger("io.smallrye.metrics");
 
     @Override
     public StringBuilder exportOneScope(MetricRegistry.Type scope) {
@@ -64,7 +60,7 @@ public class JsonExporter implements Exporter {
     @Override
     public StringBuilder exportAllScopes() {
 
-        JsonObjectBuilder root = Json.createObjectBuilder();
+        JsonObjectBuilder root = JsonProviderHolder.get().createObjectBuilder();
 
         root.add("base", exportOneRegistry(MetricRegistries.get(MetricRegistry.Type.BASE)));
         root.add("vendor", exportOneRegistry(MetricRegistries.get(MetricRegistry.Type.VENDOR)));
@@ -84,7 +80,7 @@ public class JsonExporter implements Exporter {
         Map<MetricID, Metric> outMap = new HashMap<>(1);
         outMap.put(metricID, m);
 
-        JsonObjectBuilder root = Json.createObjectBuilder();
+        JsonObjectBuilder root = JsonProviderHolder.get().createObjectBuilder();
         exportMetricsForMap(outMap, metadataMap)
                 .forEach(root::add);
         return stringify(root.build());
@@ -102,7 +98,7 @@ public class JsonExporter implements Exporter {
                         Map.Entry::getValue));
         Map<String, Metadata> metadataMap = registry.getMetadata();
 
-        JsonObjectBuilder root = Json.createObjectBuilder();
+        JsonObjectBuilder root = JsonProviderHolder.get().createObjectBuilder();
         exportMetricsForMap(metricMap, metadataMap)
                 .forEach(root::add);
         return stringify(root.build());
@@ -117,7 +113,7 @@ public class JsonExporter implements Exporter {
 
     StringBuilder stringify(JsonObject obj) {
         StringWriter out = new StringWriter();
-        try (JsonWriter writer = Json.createWriterFactory(JSON_CONFIG).createWriter(out)) {
+        try (JsonWriter writer = JsonProviderHolder.get().createWriterFactory(JSON_CONFIG).createWriter(out)) {
             writer.writeObject(obj);
         }
         return new StringBuilder(out.toString());
@@ -125,7 +121,7 @@ public class JsonExporter implements Exporter {
 
     private Map<String, JsonValue> exportMetricsByName(Map<MetricID, Metric> metricMap, Metadata metadata) {
         Map<String, JsonValue> result = new HashMap<>();
-        JsonObjectBuilder builder = Json.createObjectBuilder();
+        JsonObjectBuilder builder = JsonProviderHolder.get().createObjectBuilder();
         switch (metadata.getTypeRaw()) {
             case GAUGE:
             case COUNTER:
@@ -153,7 +149,7 @@ public class JsonExporter implements Exporter {
             case SIMPLE_TIMER:
                 metricMap.forEach((metricID, value) -> {
                     SimpleTimer metric = (SimpleTimer) value;
-                    exportSimpleTimer(metric, metadata.getUnit().orElse(null), createTagsString(metricID.getTagsAsList()))
+                    exportSimpleTimer(metric, metadata.getUnit(), createTagsString(metricID.getTagsAsList()))
                             .forEach(builder::add);
                 });
                 result.put(metadata.getName(), builder.build());
@@ -161,7 +157,7 @@ public class JsonExporter implements Exporter {
             case TIMER:
                 metricMap.forEach((metricID, value) -> {
                     Timer metric = (Timer) value;
-                    exportTimer(metric, metadata.getUnit().orElse(null), createTagsString(metricID.getTagsAsList()))
+                    exportTimer(metric, metadata.getUnit(), createTagsString(metricID.getTagsAsList()))
                             .forEach(builder::add);
                 });
                 result.put(metadata.getName(), builder.build());
@@ -184,7 +180,7 @@ public class JsonExporter implements Exporter {
         Map<MetricID, Metric> metricMap = registry.getMetrics();
         Map<String, Metadata> metadataMap = registry.getMetadata();
 
-        JsonObjectBuilder root = Json.createObjectBuilder();
+        JsonObjectBuilder root = JsonProviderHolder.get().createObjectBuilder();
         exportMetricsForMap(metricMap, metadataMap)
                 .forEach(root::add);
         return root.build();
@@ -210,13 +206,13 @@ public class JsonExporter implements Exporter {
     private JsonValue exportSimpleMetric(MetricID metricID, Metric metric) {
         Number val = getValueFromMetric(metric, metricID.getName());
         if (val instanceof Double) {
-            return Json.createValue((Double) val);
+            return JsonProviderHolder.get().createValue((Double) val);
         } else if (val instanceof Float) {
-            return Json.createValue((Float) val);
+            return JsonProviderHolder.get().createValue((Float) val);
         } else if (val instanceof Integer) {
-            return Json.createValue((Integer) val);
+            return JsonProviderHolder.get().createValue((Integer) val);
         } else if (val instanceof Long) {
-            return Json.createValue((Long) val);
+            return JsonProviderHolder.get().createValue((Long) val);
         } else {
             throw new IllegalStateException();
         }
@@ -224,24 +220,24 @@ public class JsonExporter implements Exporter {
 
     private Map<String, JsonValue> meterValues(Metered meter, String tags) {
         Map<String, JsonValue> map = new HashMap<>();
-        map.put("count" + tags, Json.createValue(meter.getCount()));
-        map.put("meanRate" + tags, Json.createValue(meter.getMeanRate()));
-        map.put("oneMinRate" + tags, Json.createValue(meter.getOneMinuteRate()));
-        map.put("fiveMinRate" + tags, Json.createValue(meter.getFiveMinuteRate()));
-        map.put("fifteenMinRate" + tags, Json.createValue(meter.getFifteenMinuteRate()));
+        map.put("count" + tags, JsonProviderHolder.get().createValue(meter.getCount()));
+        map.put("meanRate" + tags, JsonProviderHolder.get().createValue(meter.getMeanRate()));
+        map.put("oneMinRate" + tags, JsonProviderHolder.get().createValue(meter.getOneMinuteRate()));
+        map.put("fiveMinRate" + tags, JsonProviderHolder.get().createValue(meter.getFiveMinuteRate()));
+        map.put("fifteenMinRate" + tags, JsonProviderHolder.get().createValue(meter.getFifteenMinuteRate()));
         return map;
     }
 
     private Map<String, JsonValue> exportConcurrentGauge(ConcurrentGauge concurrentGauge, String tags) {
         Map<String, JsonValue> map = new HashMap<>();
-        map.put("current" + tags, Json.createValue(concurrentGauge.getCount()));
-        map.put("max" + tags, Json.createValue(concurrentGauge.getMax()));
-        map.put("min" + tags, Json.createValue(concurrentGauge.getMin()));
+        map.put("current" + tags, JsonProviderHolder.get().createValue(concurrentGauge.getCount()));
+        map.put("max" + tags, JsonProviderHolder.get().createValue(concurrentGauge.getMax()));
+        map.put("min" + tags, JsonProviderHolder.get().createValue(concurrentGauge.getMin()));
         return map;
     }
 
     private JsonObject exportSimpleTimer(SimpleTimer timer, String unit, String tags) {
-        JsonObjectBuilder builder = Json.createObjectBuilder();
+        JsonObjectBuilder builder = JsonProviderHolder.get().createObjectBuilder();
         builder.add("count" + tags, timer.getCount());
         builder.add("elapsedTime" + tags, toBase(timer.getElapsedTime().toNanos(), unit));
         Duration minTimeDuration = timer.getMinTimeDuration();
@@ -260,7 +256,7 @@ public class JsonExporter implements Exporter {
     }
 
     private JsonObject exportTimer(Timer timer, String unit, String tags) {
-        JsonObjectBuilder builder = Json.createObjectBuilder();
+        JsonObjectBuilder builder = JsonProviderHolder.get().createObjectBuilder();
         snapshotValues(timer.getSnapshot(), unit, tags)
                 .forEach(builder::add);
         meterValues(timer, tags)
@@ -271,7 +267,7 @@ public class JsonExporter implements Exporter {
 
     private Map<String, JsonValue> exportHistogram(Histogram histogram, String tags) {
         Map<String, JsonValue> map = new HashMap<>();
-        map.put("count" + tags, Json.createValue(histogram.getCount()));
+        map.put("count" + tags, JsonProviderHolder.get().createValue(histogram.getCount()));
         snapshotValues(histogram.getSnapshot(), tags)
                 .forEach((map::put));
         return map;
@@ -279,31 +275,31 @@ public class JsonExporter implements Exporter {
 
     private Map<String, JsonValue> snapshotValues(Snapshot snapshot, String tags) {
         Map<String, JsonValue> map = new HashMap<>();
-        map.put("p50" + tags, Json.createValue(snapshot.getMedian()));
-        map.put("p75" + tags, Json.createValue(snapshot.get75thPercentile()));
-        map.put("p95" + tags, Json.createValue(snapshot.get95thPercentile()));
-        map.put("p98" + tags, Json.createValue(snapshot.get98thPercentile()));
-        map.put("p99" + tags, Json.createValue(snapshot.get99thPercentile()));
-        map.put("p999" + tags, Json.createValue(snapshot.get999thPercentile()));
-        map.put("min" + tags, Json.createValue(snapshot.getMin()));
-        map.put("mean" + tags, Json.createValue(snapshot.getMean()));
-        map.put("max" + tags, Json.createValue(snapshot.getMax()));
-        map.put("stddev" + tags, Json.createValue(snapshot.getStdDev()));
+        map.put("p50" + tags, JsonProviderHolder.get().createValue(snapshot.getMedian()));
+        map.put("p75" + tags, JsonProviderHolder.get().createValue(snapshot.get75thPercentile()));
+        map.put("p95" + tags, JsonProviderHolder.get().createValue(snapshot.get95thPercentile()));
+        map.put("p98" + tags, JsonProviderHolder.get().createValue(snapshot.get98thPercentile()));
+        map.put("p99" + tags, JsonProviderHolder.get().createValue(snapshot.get99thPercentile()));
+        map.put("p999" + tags, JsonProviderHolder.get().createValue(snapshot.get999thPercentile()));
+        map.put("min" + tags, JsonProviderHolder.get().createValue(snapshot.getMin()));
+        map.put("mean" + tags, JsonProviderHolder.get().createValue(snapshot.getMean()));
+        map.put("max" + tags, JsonProviderHolder.get().createValue(snapshot.getMax()));
+        map.put("stddev" + tags, JsonProviderHolder.get().createValue(snapshot.getStdDev()));
         return map;
     }
 
     private Map<String, JsonValue> snapshotValues(Snapshot snapshot, String unit, String tags) {
         Map<String, JsonValue> map = new HashMap<>();
-        map.put("p50" + tags, Json.createValue(toBase(snapshot.getMedian(), unit)));
-        map.put("p75" + tags, Json.createValue(toBase(snapshot.get75thPercentile(), unit)));
-        map.put("p95" + tags, Json.createValue(toBase(snapshot.get95thPercentile(), unit)));
-        map.put("p98" + tags, Json.createValue(toBase(snapshot.get98thPercentile(), unit)));
-        map.put("p99" + tags, Json.createValue(toBase(snapshot.get99thPercentile(), unit)));
-        map.put("p999" + tags, Json.createValue(toBase(snapshot.get999thPercentile(), unit)));
-        map.put("min" + tags, Json.createValue(toBase(snapshot.getMin(), unit)));
-        map.put("mean" + tags, Json.createValue(toBase(snapshot.getMean(), unit)));
-        map.put("max" + tags, Json.createValue(toBase(snapshot.getMax(), unit)));
-        map.put("stddev" + tags, Json.createValue(toBase(snapshot.getStdDev(), unit)));
+        map.put("p50" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.getMedian(), unit)));
+        map.put("p75" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.get75thPercentile(), unit)));
+        map.put("p95" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.get95thPercentile(), unit)));
+        map.put("p98" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.get98thPercentile(), unit)));
+        map.put("p99" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.get99thPercentile(), unit)));
+        map.put("p999" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.get999thPercentile(), unit)));
+        map.put("min" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.getMin(), unit)));
+        map.put("mean" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.getMean(), unit)));
+        map.put("max" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.getMax(), unit)));
+        map.put("stddev" + tags, JsonProviderHolder.get().createValue(toBase(snapshot.getStdDev(), unit)));
         return map;
     }
 
@@ -317,14 +313,12 @@ public class JsonExporter implements Exporter {
             if (value != null) {
                 return value;
             } else {
-                log.warn("Value is null for " + name);
-                return -142.142; // TODO
+                return 0;
             }
         } else if (theMetric instanceof Counter) {
             return ((Counter) theMetric).getCount();
         } else {
-            log.error("Not yet supported metric: " + theMetric.getClass().getName());
-            return -42.42;
+            return null;
         }
     }
 

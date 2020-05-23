@@ -42,10 +42,10 @@ import org.eclipse.microprofile.metrics.MetricType;
 import org.eclipse.microprofile.metrics.SimpleTimer;
 import org.eclipse.microprofile.metrics.Snapshot;
 import org.eclipse.microprofile.metrics.Timer;
-import org.jboss.logging.Logger;
 
 import io.smallrye.metrics.ExtendedMetadata;
 import io.smallrye.metrics.MetricRegistries;
+import io.smallrye.metrics.SmallRyeMetricsLogging;
 
 /**
  * Export data in OpenMetrics text format
@@ -53,8 +53,6 @@ import io.smallrye.metrics.MetricRegistries;
  * @author Heiko W. Rupp
  */
 public class OpenMetricsExporter implements Exporter {
-
-    private static final Logger log = Logger.getLogger("io.smallrye.metrics");
 
     // This allows to suppress the (noisy) # HELP line
     private static final String MICROPROFILE_METRICS_OMIT_HELP_LINE = "microprofile.metrics.omitHelpLine";
@@ -185,7 +183,7 @@ public class OpenMetricsExporter implements Exporter {
                             key = keyOverride;
                         } else {
                             key = getOpenMetricsMetricName(key);
-                            unit = OpenMetricsUnit.getBaseUnitAsOpenMetricsString(md.getUnit());
+                            unit = OpenMetricsUnit.getBaseUnitAsOpenMetricsString(md.unit());
                             if (!unit.equals(NONE)) {
                                 unitSuffix = "_" + unit;
                             }
@@ -236,7 +234,7 @@ public class OpenMetricsExporter implements Exporter {
                 sb.append(metricBuf);
                 alreadyExportedNames.get().add(md.getName());
             } catch (Exception e) {
-                log.warn("Unable to export metric " + key, e);
+                SmallRyeMetricsLogging.log.unableToExport(key, e);
             }
         }
     }
@@ -244,7 +242,7 @@ public class OpenMetricsExporter implements Exporter {
     private void writeTimerValues(StringBuilder sb, MetricRegistry.Type scope, Timer timer, Metadata md,
             Map<String, String> tags) {
 
-        String unit = OpenMetricsUnit.getBaseUnitAsOpenMetricsString(md.getUnit());
+        String unit = OpenMetricsUnit.getBaseUnitAsOpenMetricsString(md.unit());
         if (unit.equals(NONE))
             unit = "seconds";
 
@@ -264,7 +262,7 @@ public class OpenMetricsExporter implements Exporter {
 
     private void writeSimpleTimerValues(StringBuilder sb, MetricRegistry.Type scope, SimpleTimer simpleTimer, Metadata md,
             Map<String, String> tags) {
-        String unit = OpenMetricsUnit.getBaseUnitAsOpenMetricsString(md.getUnit());
+        String unit = OpenMetricsUnit.getBaseUnitAsOpenMetricsString(md.unit());
         if (unit.equals(NONE))
             unit = "seconds";
 
@@ -302,7 +300,7 @@ public class OpenMetricsExporter implements Exporter {
             Map<String, String> tags) {
 
         Snapshot snapshot = histogram.getSnapshot();
-        Optional<String> optUnit = md.getUnit();
+        Optional<String> optUnit = md.unit();
         String unit = OpenMetricsUnit.getBaseUnitAsOpenMetricsString(optUnit);
 
         String theUnit = unit.equals("none") ? "" : USCORE + unit;
@@ -396,7 +394,7 @@ public class OpenMetricsExporter implements Exporter {
             String scaleFrom = "nanoseconds";
             if (md.getTypeRaw() == MetricType.HISTOGRAM)
                 // for histograms, internally the data is stored using the metric's unit
-                scaleFrom = md.getUnit().orElse(NONE);
+                scaleFrom = md.unit().orElse(NONE);
             value = OpenMetricsUnit.scaleToBase(scaleFrom, valueRaw);
         } else {
             value = valueRaw;
@@ -446,7 +444,7 @@ public class OpenMetricsExporter implements Exporter {
 
     private void writeHelpLine(final StringBuilder sb, MetricRegistry.Type scope, String key, Metadata md, String suffix) {
         // Only write this line if we actually have a description in metadata
-        Optional<String> description = md.getDescription();
+        Optional<String> description = md.description();
         if (writeHelpLine && description.filter(s -> !s.isEmpty()).isPresent()
                 && !alreadyExportedNames.get().contains(md.getName())) {
             sb.append("# HELP ");
@@ -494,7 +492,7 @@ public class OpenMetricsExporter implements Exporter {
         fillBaseName(sb, scope, key, suffix, md);
         // append the base unit only in case that the key wasn't overridden
         if (getOpenMetricsKeyOverride(md) == null) {
-            String unit = OpenMetricsUnit.getBaseUnitAsOpenMetricsString(md.getUnit());
+            String unit = OpenMetricsUnit.getBaseUnitAsOpenMetricsString(md.unit());
             if (!unit.equals(NONE)) {
                 sb.append(USCORE).append(unit);
             }
@@ -508,14 +506,13 @@ public class OpenMetricsExporter implements Exporter {
             if (value1 != null) {
                 valIn = value1.doubleValue();
             } else {
-                log.warn("Value is null for " + key);
-                throw new IllegalStateException("Value must not be null for " + key);
+                valIn = Double.NaN;
             }
         } else {
             valIn = (double) ((Counter) metric).getCount();
         }
 
-        Double value = OpenMetricsUnit.scaleToBase(md.getUnit().orElse(NONE), valIn);
+        Double value = OpenMetricsUnit.scaleToBase(md.unit().orElse(NONE), valIn);
         sb.append(SPACE).append(value).append(LF);
 
     }

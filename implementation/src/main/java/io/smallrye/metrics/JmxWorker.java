@@ -31,14 +31,11 @@ import javax.management.ObjectName;
 import javax.management.openmbean.CompositeData;
 
 import org.eclipse.microprofile.metrics.Tag;
-import org.jboss.logging.Logger;
 
 /**
  * @author hrupp
  */
 public class JmxWorker {
-
-    private static final Logger log = Logger.getLogger("io.smallrye.metrics");
 
     private static final String PLACEHOLDER = "%s";
     private static MBeanServer mbs;
@@ -133,12 +130,10 @@ public class JmxWorker {
                     for (ObjectName oName : objNames) {
                         String newName = entry.getMetadata().getName();
                         if (!newName.contains(PLACEHOLDER) && entry.getTags().isEmpty()) {
-                            log.warn("Name [" + newName
-                                    + "] did not contain a %s or any tags, no replacement will be done, check" +
-                                    " the configuration");
+                            SmallRyeMetricsLogging.log.nameDoesNotContainPlaceHoldersOrTags(newName);
                         }
                         String newDisplayName = entry.getMetadata().getDisplayName();
-                        String newDescription = entry.getMetadata().getDescription().orElse("");
+                        String newDescription = entry.getMetadata().getDescription();
                         List<Tag> newTags = new ArrayList<>(entry.getTags());
                         for (final Entry<String, String> keyHolder : keyHolders.entrySet()) {
                             String keyValue = oName.getKeyPropertyList().get(keyHolder.getValue());
@@ -154,20 +149,19 @@ public class JmxWorker {
                         String newObjectName = oName.getCanonicalName() + "/" + attName;
 
                         ExtendedMetadata newEntryMetadata = new ExtendedMetadata(newName, newDisplayName, newDescription,
-                                entry.getMetadata().getTypeRaw(), entry.getMetadata().getUnit().orElse(null), newObjectName,
+                                entry.getMetadata().getTypeRaw(), entry.getMetadata().getUnit(), newObjectName,
                                 true);
                         ExtendedMetadataAndTags newEntry = new ExtendedMetadataAndTags(newEntryMetadata, newTags);
                         result.add(newEntry);
                     }
                     toBeRemoved.add(entry);
                 } catch (MalformedObjectNameException e) {
-                    throw new IllegalStateException(e);
+                    throw SmallRyeMetricsMessages.msg.malformedObjectName(e);
                 }
             }
         }
         entries.removeAll(toBeRemoved);
         entries.addAll(result);
-        log.debug("Converted [" + toBeRemoved.size() + "] config entries and added [" + result.size() + "] replacements");
     }
 
     /**
