@@ -26,7 +26,7 @@
   </parent>
 
   <artifactId>smallrye-metrics-parent</artifactId>
-  <version>2.4.2-SNAPSHOT</version>
+  <version>2.4.3-SNAPSHOT</version>
 
   <packaging>pom</packaging>
   <name>SmallRye: MicroProfile Metrics Parent</name>
@@ -34,7 +34,7 @@
 
   <properties>
     <version.microprofile-config>1.4</version.microprofile-config>
-    <version.microprofile-metrics>2.3</version.microprofile-metrics>
+    <version.microprofile-metrics>2.3.2</version.microprofile-metrics>
 
     <version.smallrye.config>1.6.2</version.smallrye.config>
 
@@ -111,6 +111,37 @@
 
     </dependencies>
   </dependencyManagement>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-release-plugin</artifactId>
+        <version>${version.release.plugin}</version>
+        <configuration>
+          <autoVersionSubmodules>true</autoVersionSubmodules>
+          <tagNameFormat>@{project.version}</tagNameFormat>
+          <preparationGoals>verify</preparationGoals>
+          <pushChanges>false</pushChanges>
+          <localCheckout>true</localCheckout>
+          <remoteTagging>false</remoteTagging>
+          <arguments>-DskipTests ${release.arguments}</arguments>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>${version.gpg.plugin}</version>
+        <configuration>
+          <gpgArguments>
+            <arg>--pinentry-mode</arg>
+            <arg>loopback</arg>
+          </gpgArguments>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
 
   <profiles>
     <profile>
